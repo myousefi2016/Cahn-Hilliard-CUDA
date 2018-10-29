@@ -9,9 +9,9 @@
 // set a 3D volume
 // To compile it with nvcc execute: nvcc -O2 -o set3d set3d.cu
 //define the data set size (cubic volume)
-#define DATAXSIZE 64
-#define DATAYSIZE 64
-#define DATAZSIZE 64
+#define DATAXSIZE 128
+#define DATAYSIZE 128
+#define DATAZSIZE 128
 //define the chunk sizes that each threadblock will work on
 #define BLKXSIZE 32
 #define BLKYSIZE 4
