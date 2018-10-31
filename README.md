@@ -4,7 +4,7 @@ Description: This CUDA program does phase-field simulation of spinodal decomposi
 
 1. [Cahn-Hilliard Equation](https://en.wikipedia.org/wiki/Cahn%E2%80%93Hilliard_equation)
 
-Dependecies: CUDA Toolkit 9.2, GCC 6.3
+Dependencies: CUDA Toolkit 9.2, GCC 6.3
 
 In order to compile the program use these commands in UNIX shell terminals:
 
