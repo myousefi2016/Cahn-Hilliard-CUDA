@@ -1,3 +1,4 @@
+pandoc_args: --webtex
 ---
 title: 'Cahn Hilliard Phase-Field Simulation by using CUDA GPU: Exascale Computational Materials Science'
 tags:
