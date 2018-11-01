@@ -12,7 +12,8 @@ authors:
     affiliation: Department of Materials Science and Engineering, Clemson University, USA
 date: 1 November 2018
 bibliography: paper.bib
-github_document:
+output:
+  github_document:
     pandoc_args: --webtex
 ---
 
