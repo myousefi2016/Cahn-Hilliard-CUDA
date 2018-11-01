@@ -10,7 +10,7 @@ In order to compile the program use these commands in UNIX shell terminals:
 
 ```
 git clone git@github.com:myousefi2016/Cahn-Hilliard-CUDA.git
-cd Allen-Cahn-CUDA && ./build.sh
+cd Cahn-Hilliard-CUDA && ./build.sh
 ```
 
 To run the program after compilation just running this command:
