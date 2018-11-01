@@ -1,4 +1,3 @@
-pandoc_args: --webtex
 ---
 title: 'Cahn Hilliard Phase-Field Simulation by using CUDA GPU: Exascale Computational Materials Science'
 tags:
@@ -13,6 +12,8 @@ authors:
     affiliation: Department of Materials Science and Engineering, Clemson University, USA
 date: 1 November 2018
 bibliography: paper.bib
+github_document:
+    pandoc_args: --webtex
 ---
 
 # Summary
