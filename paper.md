@@ -28,12 +28,12 @@ The main theory behind the ```Cahn-Hilliard-CUDA``` is nonlinear diffusion equat
 
 $$\frac{\partial c}{\partial t} = D \nabla^{2} (c^{3}-c-\gamma \nabla^{2} c)$$
 
-Where $$D$$ is the diffusion coefficient and $$\gamma$$ controls interface thickness between two phases of different materials.
-In fact the nonlinear term of $$\mu = c^{3}-c-\nabla^{2} c$$ is the definition of chemical potential and is extracted from minimizing this Lyaponov free energy functional as:
+Where $D$ is the diffusion coefficient and $\gamma$ controls interface thickness between two phases of different materials.
+In fact the nonlinear term of $\mu = c^{3}-c-\nabla^{2} c$ is the definition of chemical potential and is extracted from minimizing this Lyaponov free energy functional as:
 
 $$F = \int_{v} [\frac{1}{4}(c^{2}-1)^{2} \frac{\gamma}{2} |\nabla c|^{2}] dv$$
 
-Where $$F$$ is the free energy functional and $$v$$ is the volume of interest. In ```Cahn-Hilliard-CUDA``` the above equation is discretized by using Crank-Nicolson method in order to find the numerical solution as:
+Where $F$ is the free energy functional and $v$ is the volume of interest. In ```Cahn-Hilliard-CUDA``` the above equation is discretized by using Crank-Nicolson method in order to find the numerical solution as:
 
 $$c_{new}^{t+1} = c_{old}^{t} + D \Delta t (\frac{\mu^{x+1,y,z}+\mu^{x-1,y,z}-2\mu^{x,y,z}}{\Delta x^{2}} + \frac{\mu^{x,y+1,z}+\mu^{x,y-1,z}-2\mu^{x,y,z}}{\Delta y^{2}} + \frac{\mu^{x,y,z+1}+\mu^{x,y,z-1}-2\mu^{x,y,z}}{\Delta z^{2}})$$
 
