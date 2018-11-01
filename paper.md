@@ -26,9 +26,7 @@ Also the ```Cahn-Hilliard-CUDA``` is written in a modular way which could facili
 
 The main theory behind the ```Cahn-Hilliard-CUDA``` is nonlinear diffusion equation based double-well chemical potential. This equation (i.e. Cahn-Hilliard equation) could be written as:
 
-{% raw %}
 $$\frac{\partial c}{\partial t} = D \nabla^{2} (c^{3}-c-\gamma \nabla^{2} c)$$
-{% endraw %}
 
 Where $D$ is the diffusion coefficient and $\gamma$ controls interface thickness between two phases of different materials.
 In fact the nonlinear term of $\mu = c^{3}-c-\nabla^{2} c$ is the definition of chemical potential and is extracted from minimizing this Lyaponov free energy functional as:
