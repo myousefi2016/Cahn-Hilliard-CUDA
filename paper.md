@@ -9,7 +9,10 @@ tags:
 authors:
   - name: Mehrdad Yousefi
     orcid: 0000-0002-6497-7166
-    affiliation: Department of Materials Science and Engineering, Clemson University, USA
+    affiliation: 1
+affiliations:
+ - name: Department of Materials Science and Engineering, Clemson University, USA
+   index: 1
 date: 1 November 2018
 bibliography: paper.bib
 ---
