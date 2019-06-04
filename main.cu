@@ -45,7 +45,7 @@ __device__ double Laplacian(double c[][DATAYSIZE][DATAXSIZE], double dx, double 
 
 }
 
-__global__ void chemicalPotential(double c[][DATAYSIZE][DATAXSIZE], double mu[][DATAYSIZE][DATAXSIZE], double dx, double dy, double dz, double gamma)
+__global__ void chemicalPotential(double c[][DATAYSIZE][DATAXSIZE], double mu[][DATAYSIZE][DATAXSIZE], double dx, double dy, double dz, double gamma, double e_AA, double e_BB, double e_AB)
 {
 
  unsigned idx = blockIdx.x*blockDim.x + threadIdx.x;
@@ -54,7 +54,7 @@ __global__ void chemicalPotential(double c[][DATAYSIZE][DATAXSIZE], double mu[][
 
  if ((idx < (DATAXSIZE-1)) && (idy < (DATAYSIZE-1)) && (idz < (DATAZSIZE-1)) && (idx > (0)) && (idy > (0)) && (idz > (0))){
 
-  mu[idx][idy][idz] = c[idx][idy][idz]*c[idx][idy][idz]*c[idx][idy][idz] - c[idx][idy][idz] - gamma*Laplacian(c,dx,dy,dz,idx,idy,idz);
+  mu[idx][idy][idz] = ( 9.0 / 2.0 )*( ( c[idx][idy][idz] + 1.0 ) * e_AA + ( c[idx][idy][idz] - 1 ) * e_BB - 2.0 * c[idx][idy][idz] * e_AB ) + ( 1.0 / 3.0 ) * c[idx][idy][idz] + c[idx][idy][idz] * c[idx][idy][idz] * c[idx][idy][idz] - gamma * Laplacian(c,dx,dy,dz,idx,idy,idz);
  }
  else
  {
@@ -172,6 +172,9 @@ int main(int argc, char *argv[])
     double dy = 1.0;
     double dz = 1.0;
     double dt = 0.01;
+    double e_AA = -(2.0/27.0);
+    double e_BB = -(2.0/27.0);
+    double e_AB = (2.0/27.0);
     int t_f = 2500;
     int t_freq = 10;
     double gamma = 0.5;
@@ -215,7 +218,7 @@ int main(int argc, char *argv[])
 
     printf("Timestep is: %d\n",t);
 
-    chemicalPotential<<<gridSize,blockSize>>>(d_cold,d_muold,dx,dy,dz,gamma);
+    chemicalPotential<<<gridSize,blockSize>>>(d_cold,d_muold,dx,dy,dz,gamma,e_AA,e_BB,e_AB);
     cudaCheckErrors("Kernel launch failure");
     cahnHilliard<<<gridSize,blockSize>>>(d_cnew,d_cold,d_muold,D,dt,dx,dy,dz);
     cudaCheckErrors("Kernel launch failure");
