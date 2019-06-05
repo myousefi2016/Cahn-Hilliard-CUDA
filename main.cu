@@ -35,9 +35,49 @@ using namespace std;
 __device__ double Laplacian(double c[][DATAYSIZE][DATAXSIZE], double dx, double dy, double dz, int x, int y, int z)
 {
 
-  double cxx = (c[x+1][y][z] + c[x-1][y][z] - 2.0*c[x][y][z]) / (dx*dx);
-  double cyy = (c[x][y+1][z] + c[x][y-1][z] - 2.0*c[x][y][z]) / (dy*dy);
-  double czz = (c[x][y][z+1] + c[x][y][z-1] - 2.0*c[x][y][z]) / (dz*dz);
+  int xp, xn, yp, yn, zp, zn;
+
+  int nx = (int)DATAXSIZE - 1;
+  int ny = (int)DATAYSIZE - 1;
+  int nz = (int)DATAZSIZE - 1;
+
+  xp = x+1;
+  xn = x-1;
+  yp = y+1;
+  yn = y-1;
+  zp = z+1;
+  zn = z-1;
+
+  if (xp > nx)
+  {
+   xp = 0;
+  }
+  if (xn < 0)
+  {
+   xn = nx;
+  }
+  
+  if (yp > ny)
+  {
+   yp = 0;
+  }
+  if (yn < 0)
+  {
+   yn = ny;
+  }
+
+  if (zp > nz)
+  {
+   zp = 0;
+  }
+  if (zn < 0)
+  {
+   zn = nz;
+  }
+
+  double cxx = (c[xp][y][z] + c[xn][y][z] - 2.0*c[x][y][z]) / (dx*dx);
+  double cyy = (c[x][yp][z] + c[x][yn][z] - 2.0*c[x][y][z]) / (dy*dy);
+  double czz = (c[x][y][zp] + c[x][y][zn] - 2.0*c[x][y][z]) / (dz*dz);
 
   double result = cxx + cyy + czz;
 
@@ -48,7 +88,23 @@ __device__ double Laplacian(double c[][DATAYSIZE][DATAXSIZE], double dx, double 
 __device__ double GradientX(double phi[][DATAYSIZE][DATAXSIZE], double dx, double dy, double dz, int x, int y, int z)
 {
 
-  double phix = (phi[x+1][y][z] - phi[x-1][y][z]) / (2.0*dx);
+  int xp, xn;
+
+  int nx = (int)DATAXSIZE - 1;
+
+  xp = x+1;
+  xn = x-1;
+
+  if (xp > nx)
+  {
+   xp = 0;
+  }
+  if (xn < 0)
+  {
+   xn = nx;
+  }
+
+  double phix = (phi[xp][y][z] - phi[xn][y][z]) / (2.0*dx);
 
   return phix;
 
@@ -57,7 +113,23 @@ __device__ double GradientX(double phi[][DATAYSIZE][DATAXSIZE], double dx, doubl
 __device__ double GradientY(double phi[][DATAYSIZE][DATAXSIZE], double dx, double dy, double dz, int x, int y, int z)
 {
 
-  double phiy = (phi[x][y+1][z] - phi[x][y-1][z]) / (2.0*dy);
+  int yp, yn;
+
+  int ny = (int)DATAYSIZE - 1;
+
+  yp = y+1;
+  yn = y-1;
+
+  if (yp > ny)
+  {
+   yp = 0;
+  }
+  if (yn < 0)
+  {
+   yn = ny;
+  }
+
+  double phiy = (phi[x][yp][z] - phi[x][yn][z]) / (2.0*dy);
 
   return phiy;
 
@@ -66,7 +138,23 @@ __device__ double GradientY(double phi[][DATAYSIZE][DATAXSIZE], double dx, doubl
 __device__ double GradientZ(double phi[][DATAYSIZE][DATAXSIZE], double dx, double dy, double dz, int x, int y, int z)
 {
 
-  double phiz = (phi[x][y][z+1] - phi[x][y][z-1]) / (2.0*dz);
+  int zp, zn;
+
+  int nz = (int)DATAZSIZE - 1;
+
+  zp = z+1;
+  zn = z-1;
+
+  if (zp > nz)
+  {
+   zp = 0;
+  }
+  if (zn < 0)
+  {
+   zn = nz;
+  }
+
+  double phiz = (phi[x][y][zp] - phi[x][y][zn]) / (2.0*dz);
 
   return phiz;
 
@@ -79,13 +167,9 @@ __global__ void chemicalPotential(double c[][DATAYSIZE][DATAXSIZE], double mu[][
  unsigned idy = blockIdx.y*blockDim.y + threadIdx.y;
  unsigned idz = blockIdx.z*blockDim.z + threadIdx.z;
 
- if ((idx < (DATAXSIZE-1)) && (idy < (DATAYSIZE-1)) && (idz < (DATAZSIZE-1)) && (idx > (0)) && (idy > (0)) && (idz > (0))){
+ if ((idx < (DATAXSIZE)) && (idy < (DATAYSIZE)) && (idz < (DATAZSIZE))){
 
   mu[idx][idy][idz] = ( 9.0 / 2.0 )*( ( c[idx][idy][idz] + 1.0 ) * e_AA + ( c[idx][idy][idz] - 1 ) * e_BB - 2.0 * c[idx][idy][idz] * e_AB ) + ( 1.0 / 3.0 ) * c[idx][idy][idz] + c[idx][idy][idz] * c[idx][idy][idz] * c[idx][idy][idz] - gamma * Laplacian(c,dx,dy,dz,idx,idy,idz);
- }
- else
- {
-  mu[idx][idy][idz] = 0.0;
  }
 
 }
@@ -93,7 +177,7 @@ __global__ void chemicalPotential(double c[][DATAYSIZE][DATAXSIZE], double mu[][
 __device__ double freeEnergy(double c, double e_AA, double e_BB, double e_AB)
 {
 
- return (((3.0 / 4.0) * ((c*c+2.0*c+1.0)*e_AA+(c*c-2.0*c+1.0)*e_BB+2.0*(1.0-c*c)*e_AB)) + ((1.0/2.0) * c * c) + ((1.0/12.0) * c * c * c * c));
+ return (((9.0 / 4.0) * ((c*c+2.0*c+1.0)*e_AA+(c*c-2.0*c+1.0)*e_BB+2.0*(1.0-c*c)*e_AB)) + ((3.0/2.0) * c * c) + ((3.0/12.0) * c * c * c * c));
 
 }
 
@@ -104,13 +188,9 @@ __global__ void localFreeEnergyFunctional(double c[][DATAYSIZE][DATAXSIZE], doub
  unsigned idy = blockIdx.y*blockDim.y + threadIdx.y;
  unsigned idz = blockIdx.z*blockDim.z + threadIdx.z;
 
- if ((idx < (DATAXSIZE-1)) && (idy < (DATAYSIZE-1)) && (idz < (DATAZSIZE-1)) && (idx > (0)) && (idy > (0)) && (idz > (0))){
+ if ((idx < (DATAXSIZE)) && (idy < (DATAYSIZE)) && (idz < (DATAZSIZE))){
 
   f[idx][idy][idz] = freeEnergy(c[idx][idy][idz],e_AA,e_BB,e_AB) + (gamma / 2.0) * (GradientX(c,dx,dy,dz,idx,idy,idz) * GradientX(c,dx,dy,dz,idx,idy,idz) + GradientY(c,dx,dy,dz,idx,idy,idz) * GradientY(c,dx,dy,dz,idx,idy,idz) + GradientZ(c,dx,dy,dz,idx,idy,idz) * GradientZ(c,dx,dy,dz,idx,idy,idz));
- }
- else
- {
-  f[idx][idy][idz] = 0.0;
  }
 
 }
@@ -121,35 +201,9 @@ __global__ void cahnHilliard(double cnew[][DATAYSIZE][DATAXSIZE], double cold[][
     unsigned idx = blockIdx.x*blockDim.x + threadIdx.x;
     unsigned idy = blockIdx.y*blockDim.y + threadIdx.y;
     unsigned idz = blockIdx.z*blockDim.z + threadIdx.z;
-    if ((idx < (DATAXSIZE-1)) && (idy < (DATAYSIZE-1)) && (idz < (DATAZSIZE-1)) && (idx > (0)) && (idy > (0)) && (idz > (0))){
+    if ((idx < (DATAXSIZE)) && (idy < (DATAYSIZE)) && (idz < (DATAZSIZE))){
       cnew[idx][idy][idz] = cold[idx][idy][idz] + dt * D * Laplacian(mu,dx,dy,dz,idx,idy,idz);
       }
-}
-
-__global__ void boundaryConditions(double cnew[][DATAYSIZE][DATAXSIZE])
-{
-    unsigned idx = blockIdx.x*blockDim.x + threadIdx.x;
-    unsigned idy = blockIdx.y*blockDim.y + threadIdx.y;
-    unsigned idz = blockIdx.z*blockDim.z + threadIdx.z;
-    if (idx == 0){
-      cnew[idx][idy][idz] = cnew[idx+1][idy][idz];
-      }
-    else if (idx == DATAXSIZE-1){
-      cnew[idx][idy][idz] = cnew[idx-1][idy][idz];
-      }
-    else if (idy == 0){
-      cnew[idx][idy][idz] = cnew[idx][idy+1][idz];
-      }
-    else if (idy == DATAYSIZE-1){
-      cnew[idx][idy][idz] = cnew[idx][idy-1][idz];
-      }
-    else if (idz == 0){
-      cnew[idx][idy][idz] = cnew[idx][idy][idz+1];
-      }
-    else if (idz == DATAZSIZE-1){
-      cnew[idx][idy][idz] = cnew[idx][idy][idz-1];
-      }
-
 }
 
 __global__ void Swap(double cnew[][DATAYSIZE][DATAXSIZE], double cold[][DATAYSIZE][DATAXSIZE])
@@ -317,8 +371,6 @@ int main(int argc, char *argv[])
     localFreeEnergyFunctional<<<gridSize,blockSize>>>(d_cold,d_fold,dx,dy,dz,gamma,e_AA,e_BB,e_AB);
     cudaCheckErrors("Kernel launch failure");
     cahnHilliard<<<gridSize,blockSize>>>(d_cnew,d_cold,d_muold,D,dt,dx,dy,dz);
-    cudaCheckErrors("Kernel launch failure");
-    boundaryConditions<<<gridSize,blockSize>>>(d_cnew);
     cudaCheckErrors("Kernel launch failure");
 
     if (t == 0) {
