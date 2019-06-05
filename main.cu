@@ -45,6 +45,33 @@ __device__ double Laplacian(double c[][DATAYSIZE][DATAXSIZE], double dx, double 
 
 }
 
+__device__ double GradientX(double phi[][DATAYSIZE][DATAXSIZE], double dx, double dy, double dz, int x, int y, int z)
+{
+
+  double phix = (phi[x+1][y][z] - phi[x-1][y][z]) / (2.0*dx);
+
+  return phix;
+
+}
+
+__device__ double GradientY(double phi[][DATAYSIZE][DATAXSIZE], double dx, double dy, double dz, int x, int y, int z)
+{
+
+  double phiy = (phi[x][y+1][z] - phi[x][y-1][z]) / (2.0*dy);
+
+  return phiy;
+
+}
+
+__device__ double GradientZ(double phi[][DATAYSIZE][DATAXSIZE], double dx, double dy, double dz, int x, int y, int z)
+{
+
+  double phiz = (phi[x][y][z+1] - phi[x][y][z-1]) / (2.0*dz);
+
+  return phiz;
+
+}
+
 __global__ void chemicalPotential(double c[][DATAYSIZE][DATAXSIZE], double mu[][DATAYSIZE][DATAXSIZE], double dx, double dy, double dz, double gamma, double e_AA, double e_BB, double e_AB)
 {
 
@@ -59,6 +86,31 @@ __global__ void chemicalPotential(double c[][DATAYSIZE][DATAXSIZE], double mu[][
  else
  {
   mu[idx][idy][idz] = 0.0;
+ }
+
+}
+
+__device__ double freeEnergy(double c, double e_AA, double e_BB, double e_AB)
+{
+
+ return (((3.0 / 4.0) * ((c*c+2.0*c+1.0)*e_AA+(c*c-2.0*c+1.0)*e_BB+2.0*(1.0-c*c)*e_AB)) + ((1.0/2.0) * c * c) + ((1.0/12.0) * c * c * c * c));
+
+}
+
+__global__ void localFreeEnergyFunctional(double c[][DATAYSIZE][DATAXSIZE], double f[][DATAYSIZE][DATAXSIZE], double dx, double dy, double dz, double gamma, double e_AA, double e_BB, double e_AB)
+{
+
+ unsigned idx = blockIdx.x*blockDim.x + threadIdx.x;
+ unsigned idy = blockIdx.y*blockDim.y + threadIdx.y;
+ unsigned idz = blockIdx.z*blockDim.z + threadIdx.z;
+
+ if ((idx < (DATAXSIZE-1)) && (idy < (DATAYSIZE-1)) && (idz < (DATAZSIZE-1)) && (idx > (0)) && (idy > (0)) && (idz > (0))){
+
+  f[idx][idy][idz] = freeEnergy(c[idx][idy][idz],e_AA,e_BB,e_AB) + (gamma / 2.0) * (GradientX(c,dx,dy,dz,idx,idy,idz) * GradientX(c,dx,dy,dz,idx,idy,idz) + GradientY(c,dx,dy,dz,idx,idy,idz) * GradientY(c,dx,dy,dz,idx,idy,idz) + GradientZ(c,dx,dy,dz,idx,idy,idz) * GradientZ(c,dx,dy,dz,idx,idy,idz));
+ }
+ else
+ {
+  f[idx][idy][idz] = 0.0;
  }
 
 }
@@ -127,9 +179,9 @@ void initialization(double c[][DATAYSIZE][DATAXSIZE])
       }
 }
 
-void write_output_vtk(double c[][DATAYSIZE][DATAXSIZE], int t, int nx, int ny, int nz)
+void write_output_vtk(double c[][DATAYSIZE][DATAXSIZE], int t, int nx, int ny, int nz, string output, string variableName)
 {
-    string name = "./out/output_" + to_string(t) + ".vtk";
+    string name = "./out/" + output + "_" + to_string(t) + ".vtk";
     ofstream ofile (name);
 
     // vtk preamble
@@ -157,13 +209,25 @@ void write_output_vtk(double c[][DATAYSIZE][DATAXSIZE], int t, int nx, int ny, i
     ofile << "POINT_DATA " << nx*ny*nz << endl;
 
     // write rho
-    ofile << "SCALARS " << "c" << " double" << endl;
+    ofile << "SCALARS " << variableName << " double" << endl;
     ofile << "LOOKUP_TABLE default" << endl;
   for (int k = 0; k < nz; k++) 
     for(int j = 0; j < ny; j++)
         for(int i = 0; i < nx; i++)
             ofile << c[i][j][k] << endl;
 
+}
+
+double integral(double c[][DATAYSIZE][DATAXSIZE], int nx, int ny, int nz)
+{
+  double summation = 0.0;  
+
+  for (int k = 0; k < nz; k++)
+    for(int j = 0; j < ny; j++)
+        for(int i = 0; i < nx; i++)
+            summation = summation + c[i][j][k];
+
+  return summation;
 }
 
 int main(int argc, char *argv[])
@@ -179,6 +243,12 @@ int main(int argc, char *argv[])
     int t_freq = 10;
     double gamma = 0.5;
     double D = 1.0;
+    string output_c = "outputc";
+    string output_mu = "outputmu";
+    string output_f = "outputf";
+    string variableName_c = "c";
+    string variableName_mu = "mu";
+    string variableName_f = "f";
     cudaSetDevice(0.0);
     typedef double nRarray[DATAYSIZE][DATAXSIZE];
     const dim3 blockSize(BLKXSIZE, BLKYSIZE, BLKZSIZE);
@@ -189,11 +259,16 @@ int main(int argc, char *argv[])
     const int nz = DATAZSIZE;
 // pointers for data set storage via malloc
     nRarray *c_host; // storage for result stored on host
+    nRarray *mu_host;
+    nRarray *f_host;
     nRarray *d_cold;  // storage for result computed on device
     nRarray *d_cnew;
     nRarray *d_muold;
+    nRarray *d_fold;
 // allocate storage for data set
     if ((c_host = (nRarray *)malloc((nx*ny*nz)*sizeof(double))) == 0) {fprintf(stderr,"malloc1 Fail \n"); return 1;}
+    if ((mu_host = (nRarray *)malloc((nx*ny*nz)*sizeof(double))) == 0) {fprintf(stderr,"malloc1 Fail \n"); return 1;}
+    if ((f_host = (nRarray *)malloc((nx*ny*nz)*sizeof(double))) == 0) {fprintf(stderr,"malloc1 Fail \n"); return 1;}
 // allocate GPU device buffers
     cudaMalloc((void **) &d_cold, (nx*ny*nz)*sizeof(double));
     cudaCheckErrors("Failed to allocate device buffer");
@@ -201,11 +276,30 @@ int main(int argc, char *argv[])
     cudaCheckErrors("Failed to allocate device buffer");
     cudaMalloc((void **) &d_muold, (nx*ny*nz)*sizeof(double));
     cudaCheckErrors("Failed to allocate device buffer");
+    cudaMalloc((void **) &d_fold, (nx*ny*nz)*sizeof(double));
+    cudaCheckErrors("Failed to allocate device buffer");
 // compute result
 
     initialization(c_host);
 
-    write_output_vtk(c_host,0,nx,ny,nz);
+    write_output_vtk(c_host,0,nx,ny,nz,output_c,variableName_c);
+
+    double integral_c = 0.0;
+    double integral_mu = 0.0;
+    double integral_f = 0.0;
+
+    string name_c = "./out/integral_c.txt";
+    ofstream ofile_c (name_c);
+
+    string name_mu = "./out/integral_mu.txt";
+    ofstream ofile_mu (name_mu);
+
+    string name_f = "./out/integral_f.txt";
+    ofstream ofile_f (name_f);
+
+    integral_c = integral(c_host,nx,ny,nz);
+
+    ofile_c << 0 << "," << integral_c << endl;
 
     cudaMemcpy(d_cold, c_host, ((nx*ny*nz)*sizeof(double)), cudaMemcpyHostToDevice);
     cudaCheckErrors("CUDA memcpy failure");
@@ -220,17 +314,63 @@ int main(int argc, char *argv[])
 
     chemicalPotential<<<gridSize,blockSize>>>(d_cold,d_muold,dx,dy,dz,gamma,e_AA,e_BB,e_AB);
     cudaCheckErrors("Kernel launch failure");
+    localFreeEnergyFunctional<<<gridSize,blockSize>>>(d_cold,d_fold,dx,dy,dz,gamma,e_AA,e_BB,e_AB);
+    cudaCheckErrors("Kernel launch failure");
     cahnHilliard<<<gridSize,blockSize>>>(d_cnew,d_cold,d_muold,D,dt,dx,dy,dz);
     cudaCheckErrors("Kernel launch failure");
     boundaryConditions<<<gridSize,blockSize>>>(d_cnew);
     cudaCheckErrors("Kernel launch failure");
+
+    if (t == 0) {
+
+     cudaMemcpy(mu_host, d_muold, ((nx*ny*nz)*sizeof(double)), cudaMemcpyDeviceToHost);   
+     cudaCheckErrors("CUDA memcpy failure");
+
+     cudaMemcpy(f_host, d_fold, ((nx*ny*nz)*sizeof(double)), cudaMemcpyDeviceToHost);
+     cudaCheckErrors("CUDA memcpy failure");
+
+     write_output_vtk(mu_host,t,nx,ny,nz,output_mu,variableName_mu);
+
+     write_output_vtk(f_host,t,nx,ny,nz,output_f,variableName_f);
+
+     integral_mu = integral(mu_host,nx,ny,nz);
+
+     ofile_mu << 0 << "," << integral_mu << endl;
+
+     integral_f = integral(f_host,nx,ny,nz);
+
+     ofile_f << 0 << "," << integral_f << endl;
+
+    }
 
     if (t % t_freq == 0 && t > 0) {
 
      cudaMemcpy(c_host, d_cnew, ((nx*ny*nz)*sizeof(double)), cudaMemcpyDeviceToHost);
      cudaCheckErrors("CUDA memcpy failure");
 
-     write_output_vtk(c_host,t,nx,ny,nz);
+     cudaMemcpy(mu_host, d_muold, ((nx*ny*nz)*sizeof(double)), cudaMemcpyDeviceToHost);
+     cudaCheckErrors("CUDA memcpy failure");
+
+     cudaMemcpy(f_host, d_fold, ((nx*ny*nz)*sizeof(double)), cudaMemcpyDeviceToHost);
+     cudaCheckErrors("CUDA memcpy failure");
+
+     write_output_vtk(c_host,t,nx,ny,nz,output_c,variableName_c);
+
+     write_output_vtk(mu_host,t,nx,ny,nz,output_mu,variableName_mu);
+
+     write_output_vtk(f_host,t,nx,ny,nz,output_f,variableName_f);
+
+     integral_c = integral(c_host,nx,ny,nz);
+
+     ofile_c << t << "," << integral_c << endl;
+
+     integral_mu = integral(mu_host,nx,ny,nz);
+
+     ofile_mu << t << "," << integral_mu << endl;
+
+     integral_f = integral(f_host,nx,ny,nz);
+
+     ofile_f << t << "," << integral_f << endl;
 
     }
     
@@ -246,11 +386,15 @@ int main(int argc, char *argv[])
     printf("GPU time = %.3fms\n",clock_d*1e3);
 
     free(c_host);
+    free(mu_host);
+    free(f_host);
     cudaFree(d_cold);
     cudaCheckErrors("cudaFree fail");
     cudaFree(d_cnew);
     cudaCheckErrors("cudaFree fail");
     cudaFree(d_muold);
     cudaCheckErrors("cudaFree fail");
+    cudaFree(d_fold);
+    cudaCheckErrors("cudaFree fail"); 
     return 0;
 }
