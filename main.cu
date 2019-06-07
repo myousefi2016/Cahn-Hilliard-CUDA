@@ -293,7 +293,7 @@ int main(int argc, char *argv[])
     double e_AA = -(2.0/27.0);
     double e_BB = -(2.0/27.0);
     double e_AB = (2.0/27.0);
-    int t_f = 2500;
+    int t_f = 25000;
     int t_freq = 10;
     double gamma = 0.5;
     double D = 1.0;
