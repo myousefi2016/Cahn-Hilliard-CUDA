@@ -169,7 +169,7 @@ __global__ void chemicalPotential(double c[][DATAYSIZE][DATAXSIZE], double mu[][
 
  if ((idx < (DATAXSIZE)) && (idy < (DATAYSIZE)) && (idz < (DATAZSIZE))){
 
-  mu[idx][idy][idz] = ( 9.0 / 2.0 )*( ( c[idx][idy][idz] + 1.0 ) * e_AA + ( c[idx][idy][idz] - 1 ) * e_BB - 2.0 * c[idx][idy][idz] * e_AB ) + ( 1.0 / 3.0 ) * c[idx][idy][idz] + c[idx][idy][idz] * c[idx][idy][idz] * c[idx][idy][idz] - gamma * Laplacian(c,dx,dy,dz,idx,idy,idz);
+  mu[idx][idy][idz] = ( 9.0 / 2.0 )*( ( c[idx][idy][idz] + 1.0 ) * e_AA + ( c[idx][idy][idz] - 1 ) * e_BB - 2.0 * c[idx][idy][idz] * e_AB ) + 3.0 * c[idx][idy][idz] + c[idx][idy][idz] * c[idx][idy][idz] * c[idx][idy][idz] - gamma * Laplacian(c,dx,dy,dz,idx,idy,idz);
  }
 
 }
@@ -288,11 +288,11 @@ int main(int argc, char *argv[])
 {
     int iterator = 0;
 
-    double e_AA = -25.0 / 27.0; 
+    double e_AA = -(7.0/9.0); 
 
-    double e_AA_f = 29.0 / 27.0;
+    double e_AA_f = (11.0/9.0);
     
-    double deltaEAA = 1.0/27.0;
+    double deltaEAA = (1.0/9.0);
 
     while (e_AA < e_AA_f + deltaEAA)
     {
@@ -304,7 +304,7 @@ int main(int argc, char *argv[])
     double dz = 1.0;
     double dt = 0.01;
     double e_BB = e_AA;
-    double e_AB = (2.0/27.0);
+    double e_AB = (2.0/9.0);
     int t_f = 25000;
     int t_freq = 10;
     double gamma = 0.5;
